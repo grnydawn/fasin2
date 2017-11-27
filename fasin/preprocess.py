@@ -25,21 +25,30 @@ def _fixed2freeform(text, isstrict):
     for line0, line1 in zip(lines[:N-1], lines[1:N]):
         L0 = len(line0)
         L1 = len(line1)
+        processed = False
         for idx, ch in enumerate(line0[:min(6,L0)]):
             if idx==0:
                 if line0[0] in ["!", "C", "*"]:
-                    line0[0] = "!"
-                    buf.append(line0)
+                    buf.append("!"+line0[1:])
+                    processed = True
                     break
             elif idx>0 and idx<5:
                 if line0[idx] == "!":
                     buf.append(line0)
+                    processed = True
                     break
-        if L1>5 and line1[5] not in [" ", "0"]:
-            buf.append(line0+"&")
-        else:
-            buf.append(line0[:6] + line0[6:])
-    return "\n".join(buf)
+        if not processed:
+            tmp = []
+            if L0>5:
+                if line0[5] not in [" ", "0"]:
+                    tmp.append("&")
+                tmp.append(line0[6:])
+            if L1>5:
+                if line1[5] not in [" ", "0"]:
+                    tmp.append("&")
+            if tmp:
+                buf.append(''.join(tmp))
+    return "\n".join(buf)+"\n"
 
 def _freeform_continuation(text, isstrict):
     buf = []
@@ -131,18 +140,17 @@ def _freeform_string_comment(text, isstrict):
                 buf.append(ch)
     return ''.join(buf), smap, cmap
 
-def transform(path, isfree=None, isstrict=None):
+def transform(path, isfree=None, isstrict=False):
     _, ext = os.path.splitext(path)
     if isfree is None and isstrict is not True:
         isfree = not ext in fixedform_extensions
     source = _read_include(path, isstrict)
-    if isfree is True or (isfree is None and isstrict is not True):
-        source, strmap, cmtmap = _freeform_string_comment(source, isstrict)
-        source = _freeform_continuation(source, isstrict)
-    elif isfree is None:
-        print('Please specify Fortran source form.')
-    else:
+    if isfree is False:
         source = _fixed2freeform(source, isstrict)
+    if isfree is None and isstrict is True:
+        raise Exception('Please specify Fortran source form.')
+    source, strmap, cmtmap = _freeform_string_comment(source, isstrict)
+    source = _freeform_continuation(source, isstrict)
     #import pdb; pdb.set_trace()
     print(source, strmap, cmtmap)
     return source, strmap, cmtmap

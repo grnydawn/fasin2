@@ -3,6 +3,7 @@ from fasin import prep
 import unittest, sys, os, shutil
 
 here = os.path.dirname(os.path.realpath(__file__))
+#prog = os.path.join(here, 'caxpy.f')
 prog = os.path.join(here, 'inc.f90')
 #prog = os.path.join(here, 'add0.f90')
 
