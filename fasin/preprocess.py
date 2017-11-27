@@ -5,7 +5,7 @@ from .util import fixedform_extensions, CMAPSTR, SMAPSTR
 
 match_include = re.compile(r'^\s*include\s+(?P<quote>[\'"])(?P<path>[^\r\n]+\r?\n)$', re.I)
 
-def _read_include(path):
+def _read_include(path, isstrict):
     lines = []
     for line in  open(path, 'r').readlines():
         match = match_include.match(line)
@@ -13,12 +13,35 @@ def _read_include(path):
             quote = match.group('quote')
             path = match.group('path')
             pos = path.find(quote)
-            lines.append(_read_include(path[:pos]))
+            lines.append(_read_include(path[:pos], isstrict))
         else:
             lines.append(line)
     return ''.join(lines)
 
-def _freeform_continuation(text):
+def _fixed2freeform(text, isstrict):
+    buf = []
+    lines = text.split("\n")
+    N = len(lines)
+    for line0, line1 in zip(lines[:N-1], lines[1:N]):
+        L0 = len(line0)
+        L1 = len(line1)
+        for idx, ch in enumerate(line0[:min(6,L0)]):
+            if idx==0:
+                if line0[0] in ["!", "C", "*"]:
+                    line0[0] = "!"
+                    buf.append(line0)
+                    break
+            elif idx>0 and idx<5:
+                if line0[idx] == "!":
+                    buf.append(line0)
+                    break
+        if L1>5 and line1[5] not in [" ", "0"]:
+            buf.append(line0+"&")
+        else:
+            buf.append(line0[:6] + line0[6:])
+    return "\n".join(buf)
+
+def _freeform_continuation(text, isstrict):
     buf = []
     A = []
     amark0 = None
@@ -55,7 +78,7 @@ def _freeform_continuation(text):
             buf.append(ch)
     return ''.join(buf)
 
-def _freeform_string_comment(text):
+def _freeform_string_comment(text, isstrict):
     smap = {}
     cmap = {}
     buf = []
@@ -112,13 +135,14 @@ def transform(path, isfree=None, isstrict=None):
     _, ext = os.path.splitext(path)
     if isfree is None and isstrict is not True:
         isfree = not ext in fixedform_extensions
+    source = _read_include(path, isstrict)
     if isfree is True or (isfree is None and isstrict is not True):
-        source, strmap, cmtmap = _freeform_string_comment(_read_include(path))
-        source = _freeform_continuation(source)
+        source, strmap, cmtmap = _freeform_string_comment(source, isstrict)
+        source = _freeform_continuation(source, isstrict)
     elif isfree is None:
         print('Please specify Fortran source form.')
     else:
-        print('Fixed-form is not supported yet.')
+        source = _fixed2freeform(source, isstrict)
     #import pdb; pdb.set_trace()
     print(source, strmap, cmtmap)
     return source, strmap, cmtmap
