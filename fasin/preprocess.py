@@ -7,15 +7,16 @@ match_include = re.compile(r'^\s*include\s+(?P<quote>[\'"])(?P<path>[^\r\n]+\r?\
 
 def _read_include(path, isstrict):
     lines = []
-    for line in  open(path, 'r').readlines():
-        match = match_include.match(line)
-        if match is not None:
-            quote = match.group('quote')
-            path = match.group('path')
-            pos = path.find(quote)
-            lines.append(_read_include(path[:pos], isstrict))
-        else:
-            lines.append(line)
+    with open(path, 'r') as f:
+        for line in f.readlines():
+            match = match_include.match(line)
+            if match is not None:
+                quote = match.group('quote')
+                path = match.group('path')
+                pos = path.find(quote)
+                lines.append(_read_include(path[:pos], isstrict))
+            else:
+                lines.append(line)
     return ''.join(lines)
 
 def _fixed2freeform(text, isstrict):
@@ -125,7 +126,7 @@ def _freeform_string_comment(text, isstrict):
         elif ch in ["'", '"']:
             quote = (ch, idx)
         elif ch == "!":
-            cmark = idx
+            cmark = idx + 1
         elif ch in ["\r", "\n"]:
             if cmark:
                 cidx = len(cmap)
@@ -152,6 +153,6 @@ def transform(path, isfree=None, isstrict=False):
     source, strmap, cmtmap = _freeform_string_comment(source, isstrict)
     source = _freeform_continuation(source, isstrict)
     #import pdb; pdb.set_trace()
-    print(source, strmap, cmtmap)
+    #print(source, strmap, cmtmap)
     return source, strmap, cmtmap
 

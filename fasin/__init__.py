@@ -1,4 +1,5 @@
 from .preprocess import transform as prep
+from .parse import transform as parse
 
 banner = '''
 ###########################################
