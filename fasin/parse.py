@@ -12,10 +12,13 @@ f2003_grammar = r"""
     program                 : program_unit+;
     program_unit            : main_program | CBL;
     main_program            : end_program_stmt;
+    //main_program            : program_stmt? specification_part? execution_part?
+    //                          internal_subprogram_part? end_program_stmt;
+
 
 
     ///////////////// end statements ///////////////////////////////
-    end_program_stmt        : LBL? END program_program_name? CBL;
+    end_program_stmt        : LABEL? END program_program_name? CBL;
     program_program_name    : PROGRAM program_name?;
 
     ////////////////// names ////////////////////////////////////
@@ -38,7 +41,7 @@ f2003_grammar = r"""
     REP_CHAR                : /{smapstr}/;
     CBL                     : CL | EOL;
     CL                      : C EOL;
-    LBL                     : /[0-9]{{1,5}}/;
+    LABEL                   : /[0-9]{{1,5}}/;
     C                       : /{cmapstr}/;
     EOL                     : /\r?\n/;
 
@@ -58,9 +61,59 @@ f2003_grammar = r"""
     cmapstr=CMAPSTR.replace('%d', '[\d]+')
 )
 
-def transform(source, strmap={}, cmtmap={}):
+#################################################
+#  Classes
+################################################
+_cls_cache = {}
+
+class Node(object):
+    def __init__(self, children=[]):
+        self.children = children
+
+    def __str__(self):
+        return ' '.join([str(c) for c in self.children if c])
+
+#################################################
+#  Rule actions
+################################################
+def tree_action_default_N(context, nodes):
+    return tree_action_default(context, nodes, collect=lambda n: n[0])
+
+def tree_action_default(context, nodes, collect=lambda n: n):
+    if hasattr(context, 'symbol') and hasattr(context.symbol, 'name'):
+        clsname = str(context.symbol.name)
+        if clsname not in _cls_cache:
+            _cls_cache[clsname] = type(clsname, (Node,), {})
+        return _cls_cache[clsname](collect(nodes))
+    else:
+        return Node(collect(nodes))
+
+def tree_action_join_space(context, nodes):
+    return tree_action_join(context, nodes, sep=' ')
+
+def tree_action_join(context, nodes, sep=''):
+    return sep.join(nodes)
+
+tree_actions = {
+    "program": tree_action_default_N,
+    "program_unit": tree_action_default,
+    "main_program": tree_action_default,
+    "end_program_stmt": tree_action_default,
+    "program_program_name": tree_action_join_space,
+    "name": tree_action_join
+}
+
+def transform(source, strmap={}, cmtmap={}, output="tree"):
+
+    parser_class = Parser #GLRParser # Parser
+    actions = globals().get('%s_actions'%output, None)
+    layout_actions = globals().get('%s_layout_actions'%output, None)
+    assert actions, "%s actions do not supported."%output
+
     g = Grammar.from_string(f2003_grammar, ignore_case=True)
-    #parser = Parser(g, build_tree=True)
-    parser = GLRParser(g, build_tree=True)
-    tree = parser.parse(source)
+    parser = parser_class(g, build_tree=True, actions=actions,
+        debug=True, debug_colors=True)
+    parsed = parser.parse(source)
+    #tree = parser.call_actions(parsed[0])
+    tree = parser.call_actions(parsed)
     import pdb; pdb.set_trace()
