@@ -3,6 +3,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os, re
 from .util import fixedform_extensions, CMAPSTR, SMAPSTR
 from parglare import Parser, GLRParser, Grammar
+from .tree_actions import tree_actions
 
 f2003_grammar = r"""
     // Fortran2003 grammar specification excerpt from J3/04-007
@@ -61,48 +62,6 @@ f2003_grammar = r"""
     cmapstr=CMAPSTR.replace('%d', '[\d]+')
 )
 
-#################################################
-#  Classes
-################################################
-_cls_cache = {}
-
-class Node(object):
-    def __init__(self, children=[]):
-        self.children = children
-
-    def __str__(self):
-        return ' '.join([str(c) for c in self.children if c])
-
-#################################################
-#  Rule actions
-################################################
-def tree_action_default_N(context, nodes):
-    return tree_action_default(context, nodes, collect=lambda n: n[0])
-
-def tree_action_default(context, nodes, collect=lambda n: n):
-    if hasattr(context, 'symbol') and hasattr(context.symbol, 'name'):
-        clsname = str(context.symbol.name)
-        if clsname not in _cls_cache:
-            _cls_cache[clsname] = type(clsname, (Node,), {})
-        return _cls_cache[clsname](collect(nodes))
-    else:
-        return Node(collect(nodes))
-
-def tree_action_join_space(context, nodes):
-    return tree_action_join(context, nodes, sep=' ')
-
-def tree_action_join(context, nodes, sep=''):
-    return sep.join(nodes)
-
-tree_actions = {
-    "program": tree_action_default_N,
-    "program_unit": tree_action_default,
-    "main_program": tree_action_default,
-    "end_program_stmt": tree_action_default,
-    "program_program_name": tree_action_join_space,
-    "name": tree_action_join
-}
-
 def transform(source, strmap={}, cmtmap={}, output="tree"):
 
     parser_class = Parser #GLRParser # Parser
@@ -117,3 +76,4 @@ def transform(source, strmap={}, cmtmap={}, output="tree"):
     #tree = parser.call_actions(parsed[0])
     tree = parser.call_actions(parsed)
     import pdb; pdb.set_trace()
+    return tree

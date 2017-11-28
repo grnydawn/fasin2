@@ -16,6 +16,9 @@ class TestParser(unittest.TestCase):
     def test_parse(self):
         source, strmap, cmtmap = self._test_prep()
         tree = parse(source, strmap, cmtmap)
+        print(source)
+        print(str(tree))
+        assert source == str(tree)
 
 if __name__ == '__main__':
     unittest.main.main()
